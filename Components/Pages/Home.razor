@@ -1,0 +1,223 @@
+@page "/"
+
+@using Microsoft.AspNetCore.Components.Forms
+@rendermode InteractiveServer
+@inject PythagorasCalculator Calculator
+@inject IContentService Content
+
+<PageTitle>Pythagoras Matrix</PageTitle>
+
+<div class="ambient ambient-one"></div>
+<div class="ambient ambient-two"></div>
+<main class="page">
+    <nav class="topbar">
+        <a class="brand" href="/">
+            <span class="brand-mark">P</span>
+            <span><strong>Pythagoras</strong><small>Matrix</small></span>
+        </a>
+        <div class="language-picker" aria-label="Language">
+            @foreach (var option in Languages)
+            {
+                <button class="lang-button @(Lang == option.Code ? "active" : "")" @onclick="() => SetLanguage(option.Code)">@option.Label</button>
+            }
+        </div>
+    </nav>
+
+    @if (!Ready)
+    {
+        <section class="glass-card loading">Loading…</section>
+    }
+    else if (Result is null)
+    {
+        <section class="hero">
+            <div class="hero-copy">
+                <span class="eyebrow">@T("eyebrow")</span>
+                <h1>@T("heroTitle")</h1>
+                <p>@T("heroText")</p>
+                <div class="feature-row">
+                    <span>✦ @T("feature1")</span><span>✦ @T("feature2")</span><span>✦ @T("feature3")</span>
+                </div>
+            </div>
+
+            <div class="glass-card calculator-card">
+                <div class="card-heading"><span class="step">01</span><div><h2>@T("startTitle")</h2><p>@T("startSubtitle")</p></div></div>
+                <div class="form-grid">
+                    <label>
+                        <span>@T("name")</span>
+                        <input @bind="Name" placeholder="@T("namePlaceholder")" autocomplete="name" />
+                    </label>
+                    <label>
+                        <span>@T("birthDate")</span>
+                        <InputDate @bind-Value="BirthDate" min="1800-01-01" max="2500-12-31" />
+                    </label>
+                </div>
+                @if (!string.IsNullOrEmpty(ErrorMessage)) { <div class="form-error">@ErrorMessage</div> }
+                <button class="primary-button full" @onclick="Calculate">@T("calculate") <span>→</span></button>
+                <p class="privacy-note">◇ @T("privacy")</p>
+            </div>
+        </section>
+
+        <section class="intro glass-card subtle">
+            <span class="eyebrow">@T("aboutLabel")</span>
+            <h2>@T("aboutTitle")</h2>
+            <div class="rich-text">@((MarkupString)Content.Different(48, Lang))</div>
+        </section>
+    }
+    else
+    {
+        <section class="result-header">
+            <div>
+                <button class="text-button" @onclick="Reset">← @T("newCalculation")</button>
+                <span class="eyebrow">@T("resultLabel")</span>
+                <h1>@(string.IsNullOrWhiteSpace(Name) ? T("yourMatrix") : $"{T("matrixFor")} {Name}")</h1>
+                <p>@FormatBirthDate()</p>
+            </div>
+            <div class="work-numbers glass-card compact">
+                <span>@T("workNumbers")</span>
+                <strong>@Result.FirstNumber · @Result.SecondNumber · @Result.ThirdNumber · @Result.FourthNumber</strong>
+                <small>@T("embodiment"): @Result.Embodiment</small>
+            </div>
+        </section>
+
+        <section class="matrix-layout">
+            <div class="glass-card matrix-card">
+                <div class="section-heading"><div><span class="eyebrow">@T("matrixLabel")</span><h2>@T("matrixTitle")</h2></div><span class="hint">@T("tapHint")</span></div>
+                <div class="matrix-grid">
+                    @for (var row = 0; row < 3; row++)
+                    {
+                        @for (var col = 0; col < 3; col++)
+                        {
+                            var digit = row + col * 3 + 1;
+                            var value = Result.Numbers[digit - 1];
+                            <button class="matrix-cell @(SelectedKey == $"d{digit}" ? "selected" : "")" @onclick="() => SelectDigit(digit)">
+                                <span class="cell-number">@(string.IsNullOrEmpty(value) ? "—" : value)</span>
+                                <span class="cell-label">@DigitLabel(digit)</span>
+                                <span class="cell-index">0@digit</span>
+                            </button>
+                        }
+                    }
+                </div>
+
+                <div class="metric-groups">
+                    <div><span>@T("rows")</span><div class="metric-pills">@for (var i=0;i<3;i++){ var x=i; <button @onclick="() => SelectLine(x)">@Result.Rows[i]</button> }</div></div>
+                    <div><span>@T("columns")</span><div class="metric-pills">@for (var i=0;i<3;i++){ var x=i; <button @onclick="() => SelectLine(x+3)">@Result.Columns[i]</button> }</div></div>
+                    <div><span>@T("diagonals")</span><div class="metric-pills"><button @onclick="() => SelectLine(6)">↘ @Result.DiagonalDown</button><button @onclick="() => SelectLine(7)">↗ @Result.DiagonalUp</button></div></div>
+                </div>
+            </div>
+
+            <aside class="glass-card insight-card">
+                <div class="insight-icon">✦</div>
+                <span class="eyebrow">@T("interpretation")</span>
+                <h2>@SelectedTitle</h2>
+                <div class="rich-text scrollable">@((MarkupString)SelectedDescription)</div>
+            </aside>
+        </section>
+
+        <section class="extras">
+            <button class="glass-card extra-card" @onclick='() => SelectSpecial("general")'><span>◎</span><div><strong>@T("generalInfo")</strong><small>@T("generalInfoSub")</small></div><b>→</b></button>
+            <button class="glass-card extra-card" @onclick='() => SelectSpecial("about")'><span>◇</span><div><strong>@T("aboutAuthor")</strong><small>@T("aboutAuthorSub")</small></div><b>→</b></button>
+            <button class="glass-card extra-card" @onclick='() => SelectSpecial("compat")'><span>∞</span><div><strong>@T("compatibility")</strong><small>@T("compatibilitySub")</small></div><b>→</b></button>
+        </section>
+    }
+
+    <footer><span>PYTHAGORAS MATRIX</span><span>@T("footer")</span></footer>
+</main>
+
+@code {
+    private bool Ready;
+    private string Lang = "en";
+    private string Name = "";
+    private DateTime BirthDate = new DateTime(1990, 1, 1);
+    private string ErrorMessage = "";
+    private PythagorasResult? Result;
+    private string SelectedKey = "";
+    private string SelectedTitle = "";
+    private string SelectedDescription = "";
+    private readonly (string Code, string Label)[] Languages = [("en","EN"),("de","DE"),("ua","UA"),("ru","RU")];
+
+    protected override async Task OnInitializedAsync() { await Content.EnsureLoadedAsync(); Ready = true; }
+
+    private void SetLanguage(string lang)
+    {
+        Lang = lang;
+        if (Result is not null) SelectDigit(1);
+    }
+
+    private void Calculate()
+    {
+        ErrorMessage = "";
+
+        if (BirthDate.Year < 1800 || BirthDate.Year > 2500)
+        {
+            ErrorMessage = T("dateError");
+            return;
+        }
+
+        Result = Calculator.Calculate(BirthDate);
+        SelectDigit(1);
+    }
+
+    private void Reset() { Result = null; SelectedKey = ""; SelectedDescription = ""; }
+
+    private void SelectDigit(int digit)
+    {
+        if (Result is null) return;
+        SelectedKey = $"d{digit}";
+        SelectedTitle = $"{digit} — {DigitLabel(digit)}";
+        SelectedDescription = Content.MatrixCell(Result.Numbers[digit - 1], digit, Lang);
+    }
+
+    private void SelectLine(int index)
+    {
+        SelectedKey = $"l{index}";
+        SelectedTitle = index switch { 0 => T("row1"), 1 => T("row2"), 2 => T("row3"), 3 => T("col1"), 4 => T("col2"), 5 => T("col3"), 6 => T("diagDown"), _ => T("diagUp") };
+        SelectedDescription = Content.Line(index, Lang);
+    }
+
+    private void SelectSpecial(string type)
+    {
+        SelectedKey = type;
+        (SelectedTitle, SelectedDescription) = type switch
+        {
+            "general" => (T("generalInfo"), Content.General(Lang)),
+            "about" => (T("aboutAuthor"), Content.About(2, Lang)),
+            _ => (T("compatibility"), Content.About(0, Lang))
+        };
+    }
+
+    private string DigitLabel(int digit) => Content.Different(28 + digit, Lang);
+
+    private string FormatBirthDate() =>
+        BirthDate.ToString("dd MMMM yyyy", CultureInfoForLang());
+
+    private CultureInfo CultureInfoForLang() =>
+        new(Lang switch
+        {
+            "de" => "de-DE",
+            "ua" => "uk-UA",
+            "ru" => "ru-RU",
+            _ => "en-US"
+        });
+
+    private string T(string key)
+    {
+        var i = Lang switch { "de" => 1, "ua" => 2, "ru" => 3, _ => 0 };
+        var d = new Dictionary<string,string[]>
+        {
+            ["eyebrow"]=["Numerology · Personal matrix","Numerologie · Persönliche Matrix","Нумерологія · Персональна матриця","Нумерология · Персональная матрица"],
+            ["heroTitle"]=["Discover the pattern hidden in your birth date","Entdecke das Muster in deinem Geburtsdatum","Відкрийте закономірність у даті народження","Откройте закономерность, скрытую в дате рождения"],
+            ["heroText"]=["A modern, interactive interpretation of the classic Pythagoras psychomatrix.","Eine moderne, interaktive Interpretation der klassischen Pythagoras-Psychomatrix.","Сучасна інтерактивна інтерпретація класичної психоматриці Піфагора.","Современная интерактивная интерпретация классической психоматрицы Пифагора."],
+            ["feature1"]=["Instant calculation","Sofortige Berechnung","Миттєвий розрахунок","Мгновенный расчёт"], ["feature2"]=["Detailed interpretation","Detaillierte Deutung","Детальне тлумачення","Подробная расшифровка"], ["feature3"]=["4 languages","4 Sprachen","4 мови","4 языка"],
+            ["startTitle"]=["Create your matrix","Erstelle deine Matrix","Створіть свою матрицю","Создайте свою матрицу"], ["startSubtitle"]=["Enter two simple details to begin.","Gib zwei Angaben ein, um zu beginnen.","Введіть два прості значення.","Введите два простых значения."],
+            ["name"]=["Name","Name","Ім’я","Имя"], ["namePlaceholder"]=["Your name","Dein Name","Ваше ім’я","Ваше имя"], ["birthDate"]=["Date of birth","Geburtsdatum","Дата народження","Дата рождения"], ["calculate"]=["Calculate my matrix","Meine Matrix berechnen","Розрахувати матрицю","Рассчитать мою матрицу"],
+            ["privacy"]=["Calculation happens on the server; no account is required.","Die Berechnung erfolgt ohne Benutzerkonto.","Обліковий запис не потрібен.","Регистрация не требуется."], ["dateError"]=["Please enter a valid birth date.","Bitte gib ein gültiges Geburtsdatum ein.","Введіть коректну дату народження.","Введите корректную дату рождения."],
+            ["aboutLabel"]=["About the method","Über die Methode","Про метод","О методе"], ["aboutTitle"]=["What is the Pythagoras Matrix?","Was ist die Pythagoras-Matrix?","Що таке матриця Піфагора?","Что такое матрица Пифагора?"],
+            ["newCalculation"]=["New calculation","Neue Berechnung","Новий розрахунок","Новый расчёт"], ["resultLabel"]=["Your personal result","Dein persönliches Ergebnis","Ваш персональний результат","Ваш персональный результат"], ["yourMatrix"]=["Your Pythagoras Matrix","Deine Pythagoras-Matrix","Ваша матриця Піфагора","Ваша матрица Пифагора"], ["matrixFor"]=["Matrix for","Matrix für","Матриця для","Матрица для"],
+            ["workNumbers"]=["Working numbers","Arbeitszahlen","Робочі числа","Рабочие числа"], ["embodiment"]=["Embodiment","Verkörperung","Втілення","Воплощение"], ["matrixLabel"]=["Interactive matrix","Interaktive Matrix","Інтерактивна матриця","Интерактивная матрица"], ["matrixTitle"]=["Your 3 × 3 psychomatrix","Deine 3 × 3 Psychomatrix","Ваша психоматриця 3 × 3","Ваша психоматрица 3 × 3"], ["tapHint"]=["Select any cell for details","Wähle ein Feld für Details","Оберіть клітинку для деталей","Нажмите на ячейку для расшифровки"],
+            ["rows"]=["Rows","Zeilen","Рядки","Строки"], ["columns"]=["Columns","Spalten","Стовпці","Столбцы"], ["diagonals"]=["Diagonals","Diagonalen","Діагоналі","Диагонали"], ["interpretation"]=["Interpretation","Interpretation","Тлумачення","Расшифровка"],
+            ["row1"]=["First row","Erste Zeile","Перший рядок","Первая строка"], ["row2"]=["Second row","Zweite Zeile","Другий рядок","Вторая строка"], ["row3"]=["Third row","Dritte Zeile","Третій рядок","Третья строка"], ["col1"]=["First column","Erste Spalte","Перший стовпець","Первый столбец"], ["col2"]=["Second column","Zweite Spalte","Другий стовпець","Второй столбец"], ["col3"]=["Third column","Dritte Spalte","Третій стовпець","Третий столбец"], ["diagDown"]=["Spiritual diagonal","Spirituelle Diagonale","Духовна діагональ","Духовная диагональ"], ["diagUp"]=["Temperament diagonal","Temperament-Diagonale","Діагональ темпераменту","Диагональ темперамента"],
+            ["generalInfo"]=["General information","Allgemeine Informationen","Загальна інформація","Общая информация"], ["generalInfoSub"]=["Learn how the numbers work","Wie die Zahlen funktionieren","Як працюють числа","Как работают числа"], ["aboutAuthor"]=["About the method","Über die Methode","Про метод","О методе"], ["aboutAuthorSub"]=["Background and principles","Hintergrund und Prinzipien","Передумови та принципи","История и принципы"], ["compatibility"]=["Compatibility","Kompatibilität","Сумісність","Совместимость"], ["compatibilitySub"]=["Read about relationship analysis","Über Beziehungsanalyse","Про аналіз стосунків","Об анализе отношений"], ["footer"]=["A modern Blazor edition","Moderne Blazor-Ausgabe","Сучасна версія на Blazor","Современная версия на Blazor"]
+        };
+        return d.TryGetValue(key, out var values) ? values[i] : key;
+    }
+}
